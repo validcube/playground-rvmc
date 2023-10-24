@@ -1,0 +1,58 @@
+name: Build pull request
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/pr-build.yml"
+      - "app/**"
+      - "gradle/**"
+      - "*.properties"
+      - ".kts"
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@0ab4596768b603586c0de567f2430c30f5b0d2b0 # v3.13.0
+        with: 
+          java-version: '17'
+          distribution: 'zulu'
+          cache: 'gradle'
+          
+      - name: Build with Gradle
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gradlew assembleRelease --no-daemon -PnoProguard -PsignAsDebug
+
+      - name: Set env
+        run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Add hash to APK
+        run: mv app/build/outputs/apk/release/app-release.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
+
+      - name: Import GPG key
+        run: |
+          echo "$GPG_KEY" | gpg --batch --import
+        env:
+          GPG_KEY: ${{ secrets.COLLISIONBOT_SIGN }}
+        
+      - name: Verify
+        run: |
+          gpg --default-key 8EEFE70B42CD810F --output revanced-manager-${{ env.COMMIT_HASH }}.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
+          sha256sum revanced-manager-${{ env.COMMIT_HASH }}.apk >> sha256sum.txt
+          sha256sum revanced-manager-${{ env.COMMIT_HASH }}.sig >> sha256sum.txt
+        
+      - name: Upload build
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: revanced-manager
+          path: |
+            revanced-manager-${{ env.COMMIT_HASH }}.apk
+            revanced-manager-${{ env.COMMIT_HASH }}.sig
+            sha256sum.txt

@@ -1,78 +1,79 @@
-name: Compile
+name: Compile & Provenance & Submit
+
 
 on:
   workflow_dispatch:
-  workflow_call:
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
-      - name: Checkout
+      - name: 📂 Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
-      - name: Setup Java JDK
+      - name: 🔨 Setup Java JDK
         uses: actions/setup-java@0ab4596768b603586c0de567f2430c30f5b0d2b0 # v3.13.0
         with: 
           java-version: '17'
           distribution: 'zulu'
           cache: 'gradle'
-          
-      - name: Build with Gradle
+
+      - name: 🪪 Generate sha256 metadata verification
+        run: ./gradlew --write-verification-metadata sha256
+
+      - name: 🪪 Store dependencies
+        run: ./gradlew :app:dependencies --configuration implementation > gradle-dependencies.txt
+        
+      - name: 🛠️ Build with Gradle
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew assembleRelease 
+        run: |
+          ./gradlew assembleRelease 
+          echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          mv app/build/outputs/apk/release/app-release.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
 
-      - name: Store dependencies
-        run: ./gradlew :app:dependencies --configuration implementation > gradle-dependencies.txt
-
-      - name: Set env
-        run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-
-      - name: Add hash to APK
-        run: mv app/build/outputs/apk/release/app-release.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
-
-      - name: Sign with keystore
+      - name: 🪪 Sign the application with keystore
         run: |
           echo "$COLLISIONBOT_KEYSTORE" | base64 --decode > collision.keystore
           jarsigner -verbose -sigalg SHA384withRSA -digestalg SHA-384 -keystore collision.keystore collisionbot revanced-manager-${{ env.COMMIT_HASH }}.apk 
         env:
           COLLISIONBOT_KEYSTORE: ${{ secrets.COLLISIONBOT_KEYSTORE }}
-
-      - name: Import GPG key
+          
+      - name: 🪪 Generate Signature + SHA384
         run: |
           echo "$GPG_KEY" | gpg --batch --import
-        env:
-          GPG_KEY: ${{ secrets.COLLISIONBOT_SIGN }}
-          
-      - name: Generate GPG + SHA384
-        run: |
           gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output revanced-manager-${{ env.COMMIT_HASH }}.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
           sha384sum revanced-manager-${{ env.COMMIT_HASH }}.apk revanced-manager-${{ env.COMMIT_HASH }}.sig >> sha384sum.txt
+          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle-dependencies.txt.sig --sign gradle-dependencies.txt
+          sha384sum gradle-dependencies.txt gradle-dependencies.txt.sig >> build-sha384sum.txt
+          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle/verification-metadata.xml.sig --sign gradle/verification-metadata.xml
+          sha384sum gradle/verification-metadata.xml gradle/verification-metadata.xml.sig >> build-sha384sum.txt
         env: 
           GPG_KEY_PASSPHRASE: ${{ secrets.COLLISIONBOT_PASS }}
           GPG_KEYID: ${{ secrets.COLLISIONBOT_GPG_KEYID }}
-
-      - name: Call SLSA Reusable Workflow
-        uses: slsa-framework/slsa-github-generator/.github/workflows/slsa-reusable-workflow.yml@main
-        with:
-          tool-repo: 'validcube/playground-rvmc'
-          tool-ref: 'compose-dev'
-          tool-path: '.github/workflows/tool-reusable-workflow.yml'
+          GPG_KEY: ${{ secrets.COLLISIONBOT_SIGN }}
         
-      - name: Upload build
+      - name: 🌤️ Upload build
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
-          name: ReVanced_Manager-${{ env.COMMIT_HASH }}
+          name: Application-RVM-${{ env.COMMIT_HASH }}
           path: |
             revanced-manager-${{ env.COMMIT_HASH }}.apk
             revanced-manager-${{ env.COMMIT_HASH }}.sig
             sha384sum.txt
             
-      - name: Upload Build information
+      - name: ⛅ Upload Build information
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
-          name: BUILDINFO-RVMC-${{ env.COMMIT_HASH }}
+          name: BuildInfo-RVM-${{ env.COMMIT_HASH }}
           path: |
             gradle-dependencies.txt
+            gradle-dependencies.txt.sig
+            gradle/verification-metadata.xml
+            gradle/verification-metadata.xml.sig
+            build-sha384sum.txt

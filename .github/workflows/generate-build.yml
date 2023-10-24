@@ -35,7 +35,7 @@ jobs:
         run: |
           ./gradlew --dependency-verification lenient assembleRelease | tee build-gradle.log
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-          mv app/build/outputs/apk/release/app-release.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
+          mv /app/build/outputs/apk/release/app-release.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
 
       - name: 🪪 Sign the application with keystore
         run: |

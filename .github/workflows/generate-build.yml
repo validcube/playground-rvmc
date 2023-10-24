@@ -22,8 +22,8 @@ jobs:
           java-version: '17'
           distribution: 'zulu'
 
-      - name: 🪪 Generate sha256 metadata verification
-        run: ./gradlew --write-verification-metadata sha256
+      - name: 🪪 Generate metadata verification
+        run: ./gradlew --write-verification-metadata pgp,sha256
 
       - name: 🪪 Store dependencies
         run: ./gradlew :app:dependencies --configuration implementation | tee gradle-dependencies.txt

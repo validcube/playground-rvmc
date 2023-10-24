@@ -2,13 +2,6 @@ name: Build pull request
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - ".github/workflows/pr-build.yml"
-      - "app/**"
-      - "gradle/**"
-      - "*.properties"
-      - ".kts"
 
 jobs:
   build:
@@ -36,13 +29,20 @@ jobs:
       - name: Add hash to APK
         run: mv app/build/outputs/apk/release/app-release.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
 
+      - name: Sign with keystore
+        run: |
+          echo "$COLLISIONBOT_KEYSTORE" | base64 --decode > collision.keystore
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore collision.keystore collisionbot revanced-manager-${{ env.COMMIT_HASH }}.apk 
+        env:
+          COLLISIONBOT_KEYSTORE: ${{ secrets.COLLISIONBOT_KEYSTORE }}
+
       - name: Import GPG key
         run: |
           echo "$GPG_KEY" | gpg --batch --import
         env:
           GPG_KEY: ${{ secrets.COLLISIONBOT_SIGN }}
-        
-      - name: Verify
+          
+      - name: Generate GPG + SHA256
         run: |
           gpg --default-key 8EEFE70B42CD810F --passphrase $GPG_KEY_PASSPHRASE --output revanced-manager-${{ env.COMMIT_HASH }}.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
           sha256sum revanced-manager-${{ env.COMMIT_HASH }}.apk >> sha256sum.txt
@@ -53,7 +53,7 @@ jobs:
       - name: Upload build
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
-          name: revanced-manager
+          name: ReVanced_Manager-${{ env.COMMIT_HASH }}
           path: |
             revanced-manager-${{ env.COMMIT_HASH }}.apk
             revanced-manager-${{ env.COMMIT_HASH }}.sig

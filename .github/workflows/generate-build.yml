@@ -21,7 +21,6 @@ jobs:
         with: 
           java-version: '17'
           distribution: 'zulu'
-          cache: 'gradle'
 
       - name: 🪪 Generate sha256 metadata verification
         run: ./gradlew --write-verification-metadata sha256

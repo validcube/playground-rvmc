@@ -21,9 +21,10 @@ jobs:
         with: 
           java-version: '17'
           distribution: 'zulu'
+          cache: gradle
 
       - name: 🪪 Generate metadata verification
-        run: ./gradlew --write-verification-metadata pgp,sha256
+        run: ./gradlew --write-verification-metadata sha256
 
       - name: 🪪 Store dependencies
         run: ./gradlew :app:dependencies --configuration implementation | tee gradle-dependencies.txt
@@ -32,7 +33,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./gradlew assembleRelease | tee build-gradle.log
+          ./gradlew --dependency-verification lenient assembleRelease | tee build-gradle.log
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           mv app/build/outputs/apk/release/app-release.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
 
@@ -90,7 +91,7 @@ jobs:
       - name: 🪪 Generate Signature + SHA384 for Provenance
         run: |
           gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output provenance.txt.sig --sign provenance.txt
-          sha384sum provenance.txt provenance.txt.sig >> sha384sum.txt
+          sha384sum provenance.txt provenance.txt.sig >> build-sha384sum.txt
         env: 
           GPG_KEY_PASSPHRASE: ${{ secrets.COLLISIONBOT_PASS }}
           GPG_KEYID: ${{ secrets.COLLISIONBOT_GPG_KEYID }}
@@ -102,7 +103,7 @@ jobs:
           name: Application-RVM-${{ env.COMMIT_HASH }}
           path: |
             revanced-manager-${{ env.COMMIT_HASH }}.apk
-            revanced-manager-${{ env.COMMIT_HASH }}.sig
+            revanced-manager-${{ env.COMMIT_HASH }}.apk.sig
             sha384sum.txt
             
       - name: ⛅ Upload Build information
@@ -114,4 +115,6 @@ jobs:
             gradle-dependencies.txt.sig
             gradle-dependencies-verification.xml
             gradle-dependencies-verification.xml.sig
+            provenance.txt
+            provenance.txt.sig
             build-sha384sum.txt

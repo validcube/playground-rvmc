@@ -1,7 +1,8 @@
-name: Build pull request
+name: Compile
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   build:
@@ -21,7 +22,10 @@ jobs:
       - name: Build with Gradle
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew assembleRelease --no-daemon -PnoProguard -PsignAsDebug
+        run: ./gradlew assembleRelease 
+
+      - name: Store dependencies
+        run: ./gradlew :app:dependencies --configuration implementation > gradle-dependencies.txt
 
       - name: Set env
         run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
@@ -32,7 +36,7 @@ jobs:
       - name: Sign with keystore
         run: |
           echo "$COLLISIONBOT_KEYSTORE" | base64 --decode > collision.keystore
-          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore collision.keystore collisionbot revanced-manager-${{ env.COMMIT_HASH }}.apk 
+          jarsigner -verbose -sigalg SHA384withRSA -digestalg SHA-384 -keystore collision.keystore collisionbot revanced-manager-${{ env.COMMIT_HASH }}.apk 
         env:
           COLLISIONBOT_KEYSTORE: ${{ secrets.COLLISIONBOT_KEYSTORE }}
 
@@ -42,13 +46,20 @@ jobs:
         env:
           GPG_KEY: ${{ secrets.COLLISIONBOT_SIGN }}
           
-      - name: Generate GPG + SHA256
+      - name: Generate GPG + SHA384
         run: |
-          gpg --default-key 8EEFE70B42CD810F --passphrase $GPG_KEY_PASSPHRASE --output revanced-manager-${{ env.COMMIT_HASH }}.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
-          sha256sum revanced-manager-${{ env.COMMIT_HASH }}.apk >> sha256sum.txt
-          sha256sum revanced-manager-${{ env.COMMIT_HASH }}.sig >> sha256sum.txt
+          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output revanced-manager-${{ env.COMMIT_HASH }}.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
+          sha384sum revanced-manager-${{ env.COMMIT_HASH }}.apk revanced-manager-${{ env.COMMIT_HASH }}.sig >> sha384sum.txt
         env: 
           GPG_KEY_PASSPHRASE: ${{ secrets.COLLISIONBOT_PASS }}
+          GPG_KEYID: ${{ secrets.COLLISIONBOT_GPG_KEYID }}
+
+      - name: Call SLSA Reusable Workflow
+        uses: slsa-framework/slsa-github-generator/.github/workflows/slsa-reusable-workflow.yml@main
+        with:
+          tool-repo: 'validcube/playground-rvmc'
+          tool-ref: 'compose-dev'
+          tool-path: '.github/workflows/tool-reusable-workflow.yml'
         
       - name: Upload build
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
@@ -57,4 +68,11 @@ jobs:
           path: |
             revanced-manager-${{ env.COMMIT_HASH }}.apk
             revanced-manager-${{ env.COMMIT_HASH }}.sig
-            sha256sum.txt
+            sha384sum.txt
+            
+      - name: Upload Build information
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        with:
+          name: BUILDINFO-RVMC-${{ env.COMMIT_HASH }}
+          path: |
+            gradle-dependencies.txt

@@ -44,9 +44,11 @@ jobs:
         
       - name: Verify
         run: |
-          gpg --default-key 8EEFE70B42CD810F --output revanced-manager-${{ env.COMMIT_HASH }}.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
+          gpg --default-key 8EEFE70B42CD810F --passphrase $GPG_KEY_PASSPHRASE --output revanced-manager-${{ env.COMMIT_HASH }}.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
           sha256sum revanced-manager-${{ env.COMMIT_HASH }}.apk >> sha256sum.txt
           sha256sum revanced-manager-${{ env.COMMIT_HASH }}.sig >> sha256sum.txt
+        env: 
+          GPG_KEY_PASSPHRASE: ${{ secrets.COLLISIONBOT_PASS }}
         
       - name: Upload build
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3

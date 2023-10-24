@@ -27,13 +27,13 @@ jobs:
         run: ./gradlew --write-verification-metadata sha256
 
       - name: 🪪 Store dependencies
-        run: ./gradlew :app:dependencies --configuration implementation >> tee gradle-dependencies.txt
+        run: ./gradlew :app:dependencies --configuration implementation >> gradle-dependencies.txt
         
       - name: 🛠️ Build with Gradle
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./gradlew --dependency-verification lenient assembleRelease >> tee build-gradle.log
+          ./gradlew --dependency-verification lenient assembleRelease >> build-gradle.log
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       #- name: 🪪 Sign the application with keystore

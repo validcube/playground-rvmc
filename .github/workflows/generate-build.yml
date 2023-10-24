@@ -37,12 +37,12 @@ jobs:
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           mv app/build/outputs/apk/release/app-release-unsigned.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
 
-      - name: 🪪 Sign the application with keystore
-        run: |
-          echo "$COLLISIONBOT_KEYSTORE" | base64 --decode > collision.keystore
-          jarsigner -verbose -sigalg SHA384withRSA -digestalg SHA-384 -keystore collision.keystore collisionbot revanced-manager-${{ env.COMMIT_HASH }}.apk 
-        env:
-          COLLISIONBOT_KEYSTORE: ${{ secrets.COLLISIONBOT_KEYSTORE }}
+      #- name: 🪪 Sign the application with keystore
+      #  run: |
+      #    echo "$COLLISIONBOT_KEYSTORE" | base64 --decode > collision.keystore
+      #    jarsigner -verbose -sigalg SHA384withRSA -digestalg SHA-384 -keystore collision.keystore collisionbot revanced-manager-${{ env.COMMIT_HASH }}.apk 
+      #  env:
+      #    COLLISIONBOT_KEYSTORE: ${{ secrets.COLLISIONBOT_KEYSTORE }}
           
       - name: 🪪 Generate Signature + SHA384
         run: |

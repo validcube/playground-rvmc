@@ -33,7 +33,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./gradlew --dependency-verification lenient assembleRelease >> build-gradle.txt
+          ./gradlew --dependency-verification lenient assembleRelease >> gradle-build.txt
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       #- name: 🪪 Sign the application with keystore

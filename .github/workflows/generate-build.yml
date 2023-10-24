@@ -35,7 +35,6 @@ jobs:
         run: |
           ./gradlew --dependency-verification lenient assembleRelease | tee build-gradle.log
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-          mv app/build/outputs/apk/release/app-release-unsigned.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
 
       #- name: 🪪 Sign the application with keystore
       #  run: |
@@ -48,6 +47,7 @@ jobs:
         run: |
           echo "$GPG_KEY" | gpg --batch --import
           
+          mv app/build/outputs/apk/release/app-release-unsigned.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
           gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output revanced-manager-${{ env.COMMIT_HASH }}.apk.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
           sha384sum revanced-manager-${{ env.COMMIT_HASH }}.apk revanced-manager-${{ env.COMMIT_HASH }}.apk.sig >> sha384sum.txt
           

@@ -48,17 +48,17 @@ jobs:
           echo "$GPG_KEY" | gpg --batch --import
           
           mv app/build/outputs/apk/release/app-release-unsigned.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
-          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output revanced-manager-${{ env.COMMIT_HASH }}.apk.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
+          gpg --pinentry-mode=loopback --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output revanced-manager-${{ env.COMMIT_HASH }}.apk.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
           sha384sum revanced-manager-${{ env.COMMIT_HASH }}.apk revanced-manager-${{ env.COMMIT_HASH }}.apk.sig >> sha384sum.txt
           
-          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle-dependencies.txt.sig --sign gradle-dependencies.txt
+          gpg --pinentry-mode=loopback --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle-dependencies.txt.sig --sign gradle-dependencies.txt
           sha384sum gradle-dependencies.txt gradle-dependencies.txt.sig >> build-sha384sum.txt
           
-          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle-build.txt.sig --sign gradle-build.txt
+          gpg --pinentry-mode=loopback --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle-build.txt.sig --sign gradle-build.txt
           sha384sum gradle-build.txt gradle-build.txt.sig >> build-sha384sum.txt
 
           mv gradle/verification-metadata.xml gradle-dependencies-verification.xml
-          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle-dependencies-verification.xml.sig --sign gradle-dependencies-verification.xml
+          gpg --pinentry-mode=loopback --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle-dependencies-verification.xml.sig --sign gradle-dependencies-verification.xml
           sha384sum gradle-dependencies-verification.xml gradle-dependencies-verification.xml.sig >> build-sha384sum.txt
         env: 
           GPG_KEY_PASSPHRASE: ${{ secrets.COLLISIONBOT_PASS }}
@@ -90,7 +90,7 @@ jobs:
           
       - name: 🪪 Generate Signature + SHA384 for Provenance
         run: |
-          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output provenance.txt.sig --sign provenance.txt
+          gpg --pinentry-mode=loopback --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output provenance.txt.sig --sign provenance.txt
           sha384sum provenance.txt provenance.txt.sig >> build-sha384sum.txt
         env: 
           GPG_KEY_PASSPHRASE: ${{ secrets.COLLISIONBOT_PASS }}

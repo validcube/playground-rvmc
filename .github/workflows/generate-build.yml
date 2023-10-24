@@ -27,13 +27,13 @@ jobs:
         run: ./gradlew --write-verification-metadata sha256
 
       - name: 🪪 Store dependencies
-        run: ./gradlew :app:dependencies --configuration implementation > gradle-dependencies.txt
+        run: ./gradlew :app:dependencies --configuration implementation | tee gradle-dependencies.txt
         
       - name: 🛠️ Build with Gradle
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./gradlew assembleRelease 
+          ./gradlew assembleRelease | tee build-gradle.log
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
           mv app/build/outputs/apk/release/app-release.apk revanced-manager-${{ env.COMMIT_HASH }}.apk
 
@@ -47,17 +47,56 @@ jobs:
       - name: 🪪 Generate Signature + SHA384
         run: |
           echo "$GPG_KEY" | gpg --batch --import
-          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output revanced-manager-${{ env.COMMIT_HASH }}.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
-          sha384sum revanced-manager-${{ env.COMMIT_HASH }}.apk revanced-manager-${{ env.COMMIT_HASH }}.sig >> sha384sum.txt
+          
+          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output revanced-manager-${{ env.COMMIT_HASH }}.apk.sig --sign revanced-manager-${{ env.COMMIT_HASH }}.apk
+          sha384sum revanced-manager-${{ env.COMMIT_HASH }}.apk revanced-manager-${{ env.COMMIT_HASH }}.apk.sig >> sha384sum.txt
+          
           gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle-dependencies.txt.sig --sign gradle-dependencies.txt
           sha384sum gradle-dependencies.txt gradle-dependencies.txt.sig >> build-sha384sum.txt
-          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle/verification-metadata.xml.sig --sign gradle/verification-metadata.xml
-          sha384sum gradle/verification-metadata.xml gradle/verification-metadata.xml.sig >> build-sha384sum.txt
+          
+          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle-build.txt.sig --sign gradle-build.txt
+          sha384sum gradle-build.txt gradle-build.txt.sig >> build-sha384sum.txt
+
+          mv gradle/verification-metadata.xml gradle-dependencies-verification.xml
+          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output gradle-dependencies-verification.xml.sig --sign gradle-dependencies-verification.xml
+          sha384sum gradle-dependencies-verification.xml gradle-dependencies-verification.xml.sig >> build-sha384sum.txt
         env: 
           GPG_KEY_PASSPHRASE: ${{ secrets.COLLISIONBOT_PASS }}
           GPG_KEYID: ${{ secrets.COLLISIONBOT_GPG_KEYID }}
           GPG_KEY: ${{ secrets.COLLISIONBOT_SIGN }}
-        
+          
+      - name: 📝 Generate Provenance Information
+        run: |
+          echo "🤖 Build Process:" >> provenance.txt
+          echo "GitHub Actions Workflow" >> provenance.txt
+          
+          echo "📁 Top-level Source:" >> provenance.txt
+          echo "https://github.com/${GITHUB_REPOSITORY##*/}/${GITHUB_REPOSITORY%%/*}" >> provenance.txt
+
+          echo "🖥️ Operating System:" >> provenance.txt
+          uname --all >> provenance.txt
+
+          echo "⌚ Timestamp:" >> provenance.txt
+          TZ='UTC+0' date --rfc-email >> provenance.txt
+
+          echo "🪪 Build log" >> provenance.txt
+          cat gradle-build.txt >> provenance.txt
+          
+          echo "🪪 Dependencies:" >> provenance.txt
+          cat gradle-dependencies.txt >> provenance.txt
+
+          echo "🪪 Dependencies Metadata:" >> provenance.txt
+          cat gradle-dependencies-verification.xml >> provenance.txt
+          
+      - name: 🪪 Generate Signature + SHA384 for Provenance
+        run: |
+          gpg --default-key $GPG_KEYID --passphrase $GPG_KEY_PASSPHRASE --output provenance.txt.sig --sign provenance.txt
+          sha384sum provenance.txt provenance.txt.sig >> sha384sum.txt
+        env: 
+          GPG_KEY_PASSPHRASE: ${{ secrets.COLLISIONBOT_PASS }}
+          GPG_KEYID: ${{ secrets.COLLISIONBOT_GPG_KEYID }}
+          GPG_KEY: ${{ secrets.COLLISIONBOT_SIGN }}
+          
       - name: 🌤️ Upload build
         uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
@@ -74,6 +113,6 @@ jobs:
           path: |
             gradle-dependencies.txt
             gradle-dependencies.txt.sig
-            gradle/verification-metadata.xml
-            gradle/verification-metadata.xml.sig
+            gradle-dependencies-verification.xml
+            gradle-dependencies-verification.xml.sig
             build-sha384sum.txt

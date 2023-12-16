@@ -18,6 +18,7 @@ jobs:
         uses: dart-lang/setup-dart@v1
 
       - name: Sync translation from Crowdin
+        continue-on-error: true
         uses: crowdin/github-action@v1
         with:
           config: crowdin.yml
@@ -39,6 +40,7 @@ jobs:
         run: |
           cd assets/i18n
           sudo chmod 777 *
+          echo test >> test.txt
           dart nuke.dart >> $GITHUB_STEP_SUMMARY
 
       - name: Push out changes to i10n
